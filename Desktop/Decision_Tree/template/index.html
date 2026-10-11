@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PathFinder AI · Student Placement Prediction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- ======================= STYLES ======================= -->
+<style>
+  :root {
+    --navy: #0f1b3d; --navy2: #1b2a5e; --indigo: #4f46e5; --blue: #2563eb;
+    --bg: #f4f6fb; --card: #fff; --text: #0f172a; --muted: #64748b; --line: #e2e8f0;
+    --ok: #059669; --ok-bg: #ecfdf5; --bad: #dc2626; --bad-bg: #fef2f2;
+    --shadow: 0 1px 2px rgba(15,23,42,.05), 0 10px 28px rgba(15,23,42,.08);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); line-height: 1.55;
+         font-family: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .i { width: 1.15em; height: 1.15em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .container { max-width: 1160px; margin: 0 auto; padding: 0 20px; }
+  :focus-visible { outline: 3px solid #a5b4fc; outline-offset: 2px; }
+
+  /* ---- Header ---- */
+  .topbar { background: var(--navy); color: #fff; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .topbar .container { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 68px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; font-size: 1.3rem;
+          background: linear-gradient(135deg, var(--indigo), var(--blue)); }
+  .brand b { display: block; font-size: 1.05rem; letter-spacing: -.01em; }
+  .brand small { color: #a9b4d6; font-size: .78rem; }
+  .status { display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: .82rem; font-weight: 600; color: #fff; cursor: pointer;
+            background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); padding: 7px 14px; border-radius: 999px; }
+  .status:hover { background: rgba(255,255,255,.14); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #94a3b8; }
+  .status[data-state="checking"] .dot { animation: blink 1s infinite; }
+  .status[data-state="ok"] .dot { background: #34d399; box-shadow: 0 0 0 4px rgba(52,211,153,.25); }
+  .status[data-state="down"] .dot { background: #f87171; box-shadow: 0 0 0 4px rgba(248,113,113,.25); }
+
+  /* ---- Hero ---- */
+  .hero { background: radial-gradient(700px 320px at 85% 0, rgba(99,102,241,.45), transparent 70%), linear-gradient(160deg, var(--navy), var(--navy2)); color: #fff; padding: 56px 0 110px; }
+  .hero .container { display: grid; grid-template-columns: 1.2fr .8fr; gap: 32px; align-items: center; }
+  .hero h1 { font-size: clamp(2rem, 4.6vw, 3.2rem); line-height: 1.08; letter-spacing: -.025em; margin: 0 0 14px; font-weight: 800; }
+  .hero p { color: #c3cbe6; max-width: 52ch; margin: 0 0 22px; }
+  .tags { display: flex; gap: 8px; flex-wrap: wrap; }
+  .tags span { font-size: .8rem; font-weight: 600; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.15); }
+  .hero svg.art { width: 100%; max-width: 340px; justify-self: center; }
+  .pulse { transform-origin: 160px 34px; animation: pulse 2.6s ease-in-out infinite; }
+
+  /* ---- Layout ---- */
+  .main { margin-top: -72px; display: grid; grid-template-columns: 1.55fr 1fr; gap: 24px; align-items: start; }
+  .card { background: var(--card); border-radius: 20px; box-shadow: var(--shadow); border: 1px solid var(--line); padding: 28px; }
+  .card h2 { margin: 0 0 4px; font-size: 1.3rem; letter-spacing: -.01em; }
+  .lead { color: var(--muted); margin: 0 0 22px; font-size: .93rem; }
+  fieldset { border: 0; margin: 0 0 24px; padding: 0; }
+  legend { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1rem; padding: 0; margin-bottom: 14px; }
+  legend .ic { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: #eef2ff; color: var(--indigo); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px 18px; }
+
+  /* ---- Fields ---- */
+  .field label { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: .88rem; margin-bottom: 6px; }
+  .field label .i { color: var(--indigo); }
+  .control { position: relative; }
+  .field input, .field select { width: 100%; font: inherit; color: var(--text); background: #fff; border: 1.5px solid var(--line);
+         border-radius: 12px; padding: 11px 14px; transition: border-color .15s, box-shadow .15s; }
+  .field input:hover, .field select:hover { border-color: #c7d2fe; }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--indigo); box-shadow: 0 0 0 4px rgba(79,70,229,.15); }
+  .field input[aria-invalid="true"], .field select[aria-invalid="true"] { border-color: var(--bad); background: var(--bad-bg); }
+  .field input[aria-invalid="true"]:focus, .field select[aria-invalid="true"]:focus { box-shadow: 0 0 0 4px rgba(220,38,38,.15); }
+  .unit { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: .78rem; font-weight: 600; pointer-events: none; }
+  .control.has-unit input { padding-right: 70px; }
+  .hint { margin: 5px 0 0; font-size: .78rem; color: var(--muted); }
+  .error { margin: 5px 0 0; font-size: .8rem; color: var(--bad); font-weight: 600; min-height: 0; }
+  .error:empty { display: none; }
+
+  /* ---- Buttons ---- */
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; padding-top: 6px; }
+  .btn { font: inherit; font-weight: 700; border-radius: 12px; padding: 13px 22px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 9px; border: 1.5px solid transparent; transition: transform .15s, box-shadow .15s, background .15s; }
+  .btn-primary { flex: 1; min-width: 200px; color: #fff; background: linear-gradient(135deg, var(--indigo), var(--blue)); box-shadow: 0 8px 20px rgba(79,70,229,.3); }
+  .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(79,70,229,.38); }
+  .btn-primary:disabled { opacity: .75; cursor: progress; }
+  .btn-ghost { background: #fff; color: var(--text); border-color: var(--line); }
+  .btn-ghost:hover { background: #f8fafc; border-color: #cbd5e1; }
+  .spinner { display: none; width: 18px; height: 18px; border: 3px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+  .loading .spinner { display: inline-block; } .loading .btn-icon { display: none; }
+
+  /* ---- Result card ---- */
+  .result { position: sticky; top: 88px; text-align: center; padding: 34px 26px; transition: background .3s, border-color .3s; }
+  .result .panel { animation: rise .4s ease; }
+  .result[data-state="success-placed"] { background: var(--ok-bg); border-color: #6ee7b7; }
+  .result[data-state="success-notplaced"], .result[data-state="error"] { background: var(--bad-bg); border-color: #fca5a5; }
+  .badge { width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 16px; display: grid; place-items: center; font-size: 2rem; background: #eef2ff; color: var(--indigo); }
+  [data-state="success-placed"] .badge { background: var(--ok); color: #fff; }
+  [data-state="success-notplaced"] .badge, [data-state="error"] .badge { background: var(--bad); color: #fff; }
+  .result h3 { margin: 0 0 8px; font-size: 1.7rem; letter-spacing: -.02em; }
+  [data-state="success-placed"] h3 { color: var(--ok); }
+  [data-state="success-notplaced"] h3, [data-state="error"] h3 { color: var(--bad); }
+  .result p { margin: 0 auto; max-width: 34ch; color: #475569; font-size: .93rem; }
+  .result .btn { margin-top: 18px; }
+  .panel[hidden] { display: none; }
+
+  /* ---- How it works ---- */
+  .how { margin: 48px 0 8px; }
+  .how h2 { text-align: center; font-size: 1.5rem; letter-spacing: -.02em; margin: 0 0 24px; }
+  .steps { list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 0; margin: 0; }
+  .steps li { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 22px; position: relative; box-shadow: var(--shadow); }
+  .steps li:not(:last-child)::after { content: "→"; position: absolute; right: -18px; top: 50%; transform: translateY(-50%); color: var(--indigo); font-weight: 800; font-size: 1.2rem; z-index: 1; }
+  .steps .ic { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; font-size: 1.3rem; background: #eef2ff; color: var(--indigo); margin-bottom: 12px; }
+  .steps b { display: block; margin-bottom: 4px; } .steps span { color: var(--muted); font-size: .9rem; }
+
+  footer { margin-top: 44px; background: var(--navy); color: #a9b4d6; padding: 26px 0; text-align: center; font-size: .86rem; }
+  footer strong { color: #fff; display: block; margin-bottom: 4px; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes blink { 50% { opacity: .3; } }
+  @keyframes pulse { 50% { transform: scale(1.12); } }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  @media (max-width: 960px) {
+    .hero .container, .main { grid-template-columns: 1fr; }
+    .hero svg.art { display: none; } .hero { padding-bottom: 96px; }
+    .result { position: static; }
+  }
+  @media (max-width: 720px) {
+    .steps { grid-template-columns: 1fr; } .steps li::after { display: none; }
+    .brand small { display: none; } .card { padding: 20px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Icon sprite (inline SVG, no CDN dependency) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-cap" viewBox="0 0 24 24"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/><path d="M22 10v6"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></symbol>
+  <symbol id="i-branch" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 8v8M18 10c0 4-6 3-12 6"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2V5Z"/><path d="M4 19a2 2 0 0 1 2-2h14"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-percent" viewBox="0 0 24 24"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/></symbol>
+  <symbol id="i-award" viewBox="0 0 24 24"><circle cx="12" cy="9" r="6"/><path d="m8.5 14-1.5 8 5-3 5 3-1.5-8"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 6 1 1 2-2M3.5 12l1 1 2-2M3.5 18l1 1 2-2"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></symbol>
+  <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2 2-6Z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v5M12 18v.5"/></symbol>
+  <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
+</svg>
+
+<!-- ======================= HEADER ======================= -->
+<header class="topbar">
+  <div class="container">
+    <div class="brand">
+      <div class="logo"><svg class="i" aria-hidden="true"><use href="#i-cap"/></svg></div>
+      <div><b>PathFinder AI</b><small>Student placement analytics</small></div>
+    </div>
+    <!-- API status: starts as "checking" and is only set to connected after GET / succeeds -->
+    <button type="button" class="status" id="status" data-state="checking" title="Click to check again">
+      <span class="dot"></span><span id="statusText">Checking API…</span>
+    </button>
+  </div>
+</header>
+
+<!-- ======================= HERO ======================= -->
+<section class="hero">
+  <div class="container">
+    <div>
+      <h1>Predict Your Placement Potential</h1>
+      <p>Enter a student's academic record and daily habits. Our machine learning model compares the profile with past student data and estimates whether the student is likely to be placed.</p>
+      <div class="tags"><span>Decision tree model</span><span>Instant result</span><span>Private by design</span></div>
+    </div>
+    <!-- Decorative decision-tree illustration -->
+    <svg class="art" viewBox="0 0 320 220" role="img" aria-label="Decision tree illustration">
+      <g stroke="#818cf8" stroke-width="2" fill="none" opacity=".8">
+        <path d="M160 34 80 100M160 34 240 100M80 100 40 180M80 100 120 180M240 100 200 180M240 100 280 180"/>
+      </g>
+      <g fill="#c7d2fe">
+        <circle cx="80" cy="100" r="13"/><circle cx="240" cy="100" r="13"/>
+      </g>
+      <g fill="#6366f1">
+        <circle cx="40" cy="180" r="11"/><circle cx="120" cy="180" r="11"/><circle cx="200" cy="180" r="11"/><circle cx="280" cy="180" r="11"/>
+      </g>
+      <circle class="pulse" cx="160" cy="34" r="19" fill="#fff"/>
+      <circle cx="160" cy="34" r="9" fill="#4f46e5"/>
+    </svg>
+  </div>
+</section>
+
+<main class="container">
+  <div class="main">
+
+    <!-- ======================= FORM ======================= -->
+    <section class="card" aria-labelledby="formTitle">
+      <h2 id="formTitle">Student details</h2>
+      <p class="lead">All fields are required. Hints show the units and allowed range.</p>
+      <form id="form" novalidate>
+        <fieldset>
+          <legend><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-user"/></svg></span>Personal information</legend>
+          <div class="grid" id="sec-personal"></div>
+        </fieldset>
+        <fieldset>
+          <legend><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-book"/></svg></span>Academic performance</legend>
+          <div class="grid" id="sec-academic"></div>
+        </fieldset>
+        <fieldset>
+          <legend><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-activity"/></svg></span>Lifestyle &amp; engagement</legend>
+          <div class="grid" id="sec-lifestyle"></div>
+        </fieldset>
+        <div class="actions">
+          <button type="submit" class="btn btn-primary" id="submitBtn">
+            <svg class="i btn-icon" aria-hidden="true"><use href="#i-sparkle"/></svg>
+            <span class="spinner" aria-hidden="true"></span>
+            <span id="submitLabel">Predict Placement</span>
+          </button>
+          <button type="button" class="btn btn-ghost" id="resetBtn">
+            <svg class="i" aria-hidden="true"><use href="#i-rotate"/></svg>Reset Form
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ======================= RESULT ======================= -->
+    <aside class="card result" id="result" data-state="empty" aria-live="polite" aria-label="Prediction result">
+      <div class="panel" data-for="empty">
+        <div class="badge"><svg class="i" aria-hidden="true"><use href="#i-sparkle"/></svg></div>
+        <h3>No prediction yet</h3>
+        <p>Fill in the student details and select Predict Placement. The result will appear here.</p>
+      </div>
+      <div class="panel" data-for="success" hidden>
+        <div class="badge"><svg class="i" aria-hidden="true"><use id="badgeUse" href="#i-check"/></svg></div>
+        <h3 id="verdict"></h3>
+        <p id="explain"></p>
+      </div>
+      <div class="panel" data-for="error" hidden>
+        <div class="badge"><svg class="i" aria-hidden="true"><use href="#i-alert"/></svg></div>
+        <h3>Couldn't get a prediction</h3>
+        <p id="errMsg"></p>
+        <button type="button" class="btn btn-ghost" id="retryBtn"><svg class="i" aria-hidden="true"><use href="#i-rotate"/></svg>Try again</button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ======================= HOW IT WORKS ======================= -->
+  <section class="how" aria-labelledby="howTitle">
+    <h2 id="howTitle">How it works</h2>
+    <ol class="steps">
+      <li><div class="ic"><svg class="i" aria-hidden="true"><use href="#i-user"/></svg></div><b>Enter Details</b><span>Provide the student's profile, academic record and daily habits.</span></li>
+      <li><div class="ic"><svg class="i" aria-hidden="true"><use href="#i-activity"/></svg></div><b>AI Model Analysis</b><span>The trained model compares the profile with patterns in past student data.</span></li>
+      <li><div class="ic"><svg class="i" aria-hidden="true"><use href="#i-award"/></svg></div><b>Prediction Result</b><span>You see whether the model predicts Placed or Not Placed.</span></li>
+    </ol>
+  </section>
+</main>
+
+<!-- ======================= FOOTER ======================= -->
+<footer>
+  <div class="container">
+    <strong>Student Placement Prediction System</strong>
+    Predictions are estimates based on past data, not placement guarantees.
+  </div>
+</footer>
+
+<!-- ======================= SCRIPT ======================= -->
+<script>
+  /* ---------- CONFIG: edit this block to match your trained model ---------- */
+  const API = { home: "/", predict: "/predict", timeoutMs: 15000 };
+
+  // Branch values must match the categories the model was trained on.
+  // (app.py upper-cases them, so "Mechanical" becomes branch_MECHANICAL.)
+  const BRANCHES = ["CSE", "IT", "ECE", "Mechanical", "Civil", "Commerce"];
+
+  // Field order here is the order of the JSON payload and of the form.
+  const FIELDS = [
+    { name: "gender", type: "select", section: "personal", label: "Gender", icon: "user", options: ["Male", "Female"], hint: "As recorded in student data." },
+    { name: "branch", type: "select", section: "personal", label: "Branch", icon: "branch", options: BRANCHES, hint: "Only branches the model was trained on." },
+    { name: "study_hours", type: "number", section: "academic", label: "Study Hours", icon: "book", unit: "hrs/day", min: 0, max: 12, step: "any", placeholder: "e.g. 5.5", hint: "Average hours studied per day (0–12). Decimals allowed." },
+    { name: "attendance", type: "number", section: "academic", label: "Attendance", icon: "percent", unit: "%", min: 0, max: 100, step: "any", placeholder: "e.g. 85", hint: "Overall attendance percentage (0–100)." },
+    { name: "previous_score", type: "number", section: "academic", label: "Previous Score", icon: "clock", unit: "marks", min: 0, max: 100, step: "any", placeholder: "e.g. 75", hint: "Marks in the previous exam (0–100)." },
+    { name: "exam_score", type: "number", section: "academic", label: "Exam Score", icon: "award", unit: "marks", min: 0, max: 100, step: "any", placeholder: "e.g. 80", hint: "Marks in the latest exam (0–100)." },
+    { name: "assignments_completed", type: "number", section: "academic", label: "Assignments Completed", icon: "list", unit: "count", min: 0, max: 100, integer: true, step: "1", placeholder: "e.g. 8", hint: "Whole number of assignments finished (0–100)." },
+    { name: "sleep_hours", type: "number", section: "lifestyle", label: "Sleep Hours", icon: "moon", unit: "hrs/day", min: 3, max: 12, step: "any", placeholder: "e.g. 7", hint: "Average hours of sleep per day (3–12)." },
+    { name: "internet_usage", type: "number", section: "lifestyle", label: "Internet Usage", icon: "globe", unit: "hrs/day", min: 0, max: 12, step: "any", placeholder: "e.g. 4", hint: "Average hours online per day (0–12)." },
+    { name: "extracurricular", type: "select", section: "lifestyle", label: "Extracurricular Activities", icon: "sparkle", options: ["Yes", "No"], hint: "Takes part in clubs, sports or events?" }
+  ];
+
+  /* ---------- Small DOM helpers (textContent only, no innerHTML) ---------- */
+  const $ = (id) => document.getElementById(id);
+  const SVGNS = "http://www.w3.org/2000/svg";
+  function el(tag, cls, text) {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function icon(name) {
+    const svg = document.createElementNS(SVGNS, "svg");
+    svg.setAttribute("class", "i"); svg.setAttribute("aria-hidden", "true");
+    const use = document.createElementNS(SVGNS, "use");
+    use.setAttribute("href", "#i-" + name);
+    svg.appendChild(use);
+    return svg;
+  }
+
+  /* ---------- Build the form from FIELDS ---------- */
+  function buildForm() {
+    FIELDS.forEach((f) => {
+      const id = "f_" + f.name;
+      const wrap = el("div", "field");
+
+      const label = el("label"); label.htmlFor = id;
+      label.append(icon(f.icon), document.createTextNode(f.label));
+
+      const control = el("div", "control");
+      let input;
+      if (f.type === "select") {
+        input = el("select");
+        const ph = new Option("Select…", "", true, true); ph.disabled = true;
+        input.add(ph);
+        f.options.forEach((o) => input.add(new Option(o, o)));
+      } else {
+        input = el("input");
+        input.type = "number"; input.inputMode = "decimal";
+        input.min = f.min; input.max = f.max; input.step = f.step; input.placeholder = f.placeholder;
+        control.classList.add("has-unit");
+      }
+      input.id = id; input.name = f.name; input.required = true;
+      input.setAttribute("aria-describedby", id + "_hint " + id + "_err");
+      control.appendChild(input);
+      if (f.unit) control.appendChild(el("span", "unit", f.unit));
+
+      const hint = el("p", "hint", f.hint); hint.id = id + "_hint";
+      const err = el("p", "error"); err.id = id + "_err"; err.setAttribute("role", "alert");
+
+      wrap.append(label, control, hint, err);
+      $("sec-" + f.section).appendChild(wrap);
+
+      // Validate on blur; re-validate while typing once a field has shown an error
+      input.addEventListener("blur", () => validateField(f));
+      input.addEventListener("input", () => { if (input.getAttribute("aria-invalid") === "true") validateField(f); });
+      input.addEventListener("change", () => validateField(f));
+    });
+  }
+
+  /* ---------- Validation ---------- */
+  function validateField(f) {
+    const input = $("f_" + f.name);
+    let msg = "";
+    const raw = input.value.trim();
+    if (f.type === "select") {
+      if (raw === "") msg = "Please choose an option.";
+    } else if (input.validity.badInput) {
+      msg = "Enter a valid number.";
+    } else if (raw === "") {
+      msg = "This field is required.";
+    } else {
+      const n = Number(raw);
+      if (!Number.isFinite(n)) msg = "Enter a valid number.";
+      else if (n < f.min || n > f.max) msg = "Enter a value between " + f.min + " and " + f.max + ".";
+      else if (f.integer && !Number.isInteger(n)) msg = "Enter a whole number.";
+    }
+    input.setAttribute("aria-invalid", msg ? "true" : "false");
+    $(input.id + "_err").textContent = msg;
+    return !msg;
+  }
+  function validateAll() {
+    let firstBad = null;
+    FIELDS.forEach((f) => { if (!validateField(f) && !firstBad) firstBad = $("f_" + f.name); });
+    if (firstBad) firstBad.focus();
+    return !firstBad;
+  }
+  function clearErrors() {
+    FIELDS.forEach((f) => { $("f_" + f.name).removeAttribute("aria-invalid"); $("f_" + f.name + "_err").textContent = ""; });
+  }
+
+  /* ---------- API status check (GET /) ---------- */
+  function setStatus(state, text) {
+    $("status").dataset.state = state; $("statusText").textContent = text;
+  }
+  async function checkApi() {
+    setStatus("checking", "Checking API…");
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    try {
+      const res = await fetch(API.home, { signal: ctrl.signal });
+      setStatus(res.ok ? "ok" : "down", res.ok ? "API connected" : "API unavailable");
+    } catch (e) {
+      setStatus("down", "API unavailable");
+    } finally { clearTimeout(timer); }
+  }
+
+  /* ---------- Result rendering ---------- */
+  function showPanel(name) {
+    document.querySelectorAll("#result .panel").forEach((p) => { p.hidden = p.dataset.for !== name; });
+  }
+  function showEmpty() { $("result").dataset.state = "empty"; showPanel("empty"); }
+  function showPrediction(prediction) {
+    const placed = prediction === "Placed";
+    $("result").dataset.state = placed ? "success-placed" : "success-notplaced";
+    $("badgeUse").setAttribute("href", placed ? "#i-check" : "#i-x");
+    $("verdict").textContent = placed ? "Placed" : "Not Placed";
+    $("explain").textContent = placed
+      ? "Based on patterns in past student data, the model predicts this profile is likely to be placed. This is an estimate, not a guarantee."
+      : "Based on patterns in past student data, the model predicts this profile is less likely to be placed. This is an estimate, not a guarantee.";
+    showPanel("success");
+  }
+  function showError(message) {
+    $("result").dataset.state = "error";
+    $("errMsg").textContent = message;
+    showPanel("error");
+  }
+
+  /* ---------- Submit: validate, build payload, call POST /predict ---------- */
+  let submitting = false;
+  function setLoading(on) {
+    submitting = on;
+    $("submitBtn").disabled = on;
+    $("submitBtn").classList.toggle("loading", on);
+    $("submitBtn").setAttribute("aria-busy", on ? "true" : "false");
+    $("submitLabel").textContent = on ? "Analyzing…" : "Predict Placement";
+  }
+  function buildPayload() {
+    const payload = {};
+    FIELDS.forEach((f) => {
+      const v = $("f_" + f.name).value.trim();
+      payload[f.name] = f.type === "number" ? Number(v) : v;   // numbers are sent as numbers
+    });
+    return payload;
+  }
+
+  $("form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (submitting || !validateAll()) return;
+    setLoading(true);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), API.timeoutMs);
+    try {
+      const res = await fetch(API.predict, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildPayload()),
+        signal: ctrl.signal
+      });
+      if (!res.ok) throw new Error(res.status === 422
+        ? "The server rejected the input. Please check the values and try again."
+        : "The server returned an error (status " + res.status + "). Please try again.");
+      let data;
+      try { data = await res.json(); }
+      catch (_) { throw new Error("The server sent an unreadable response. Please try again."); }
+      if (!data || (data.prediction !== "Placed" && data.prediction !== "Not Placed"))
+        throw new Error("The server returned an unexpected result. Please try again.");
+      showPrediction(data.prediction);
+      setStatus("ok", "API connected");
+    } catch (err) {
+      const offline = err.name === "AbortError" || err instanceof TypeError;
+      showError(offline ? "We couldn't reach the prediction service. Check that the server is running and try again." : err.message);
+      if (offline) setStatus("down", "API unavailable");
+    } finally {
+      clearTimeout(timer);
+      setLoading(false);
+    }
+  });
+
+  /* ---------- Reset and retry ---------- */
+  $("resetBtn").addEventListener("click", () => {
+    $("form").reset(); clearErrors(); showEmpty();
+  });
+  $("retryBtn").addEventListener("click", () => $("form").requestSubmit());
+  $("status").addEventListener("click", checkApi);
+
+  /* ---------- Init ---------- */
+  buildForm();
+  showEmpty();
+  checkApi();
+</script>
+</body>
+</html>
